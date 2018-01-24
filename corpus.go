@@ -1,14 +1,26 @@
 package fgsdmm
 
 import (
-	"os"
-
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path"
+	"strconv"
+	"strings"
+
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/text"
-	"strconv"
+)
+
+type CorpusType int
+
+const (
+	UnknownCorpus CorpusType = iota
+	LDACCorpus
+	JSONLCorpus
+	TxtCorpus
 )
 
 var Logger = &log.Logger{
@@ -21,6 +33,7 @@ type Document struct {
 	TknIDs []int
 	TknCts []int
 	NTkn   int
+	Label  int
 }
 
 // Cluster represents the current token and document counts assigned to the cluster.
@@ -30,10 +43,12 @@ type Cluster struct {
 	NTkn   int
 }
 
-// Corpus holds the Documents associated with a training set.
+// Corpus holds the Documents associated with a training set and a map of
+// token => numerical ID if needed.
 type Corpus struct {
-	NDocs int
-	Docs  []*Document
+	NDocs  int
+	Docs   []*Document
+	TknMap map[string]int
 }
 
 // LoadLDACFile loads a file in the LDA-C format. See the readme at
@@ -86,4 +101,81 @@ func LoadLDACFile(fp string) (*Corpus, error) {
 	c.NDocs = len(c.Docs)
 
 	return c, nil
+}
+
+type RawDoc struct {
+	Text    string `json:"text"`
+	Cluster int    `json:"cluster"`
+}
+
+func LoadJSONL(path string) (*Corpus, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	c := &Corpus{
+		NDocs:  0,
+		Docs:   make([]*Document, 0),
+		TknMap: make(map[string]int),
+	}
+
+	for scanner.Scan() {
+		rawDoc := &RawDoc{}
+		if err := json.Unmarshal(scanner.Bytes(), rawDoc); err != nil {
+			return nil, err
+		}
+
+		doc := &Document{
+			Label:  rawDoc.Cluster,
+			TknIDs: make([]int, 0),
+			TknCts: make([]int, 0),
+		}
+		cts := make(map[int]int)
+		tokens := strings.Split(rawDoc.Text, " ")
+		for _, tkn := range tokens {
+			tknID, ok := c.TknMap[tkn]
+			if !ok {
+				tknID = len(c.TknMap)
+				c.TknMap[tkn] = tknID
+			}
+			cts[tknID]++
+		}
+		for tknID, ct := range cts {
+			doc.TknIDs = append(doc.TknIDs, tknID)
+			doc.TknCts = append(doc.TknCts, ct)
+			doc.NTkn += ct
+		}
+		c.Docs = append(c.Docs, doc)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func LoadCorpus(fp string, cType CorpusType) (*Corpus, error) {
+	if cType == UnknownCorpus {
+		Logger.Debugf("No corpus type specified. Attempting to infer from path: %v", fp)
+		ext := path.Ext(fp)
+		switch ext {
+		case "jsonl":
+			cType = JSONLCorpus
+		case "txt":
+			cType = TxtCorpus
+		case "dat":
+			cType = LDACCorpus
+		default:
+			return nil, fmt.Errorf("cannot infer corpus type from path: %v", fp)
+		}
+	}
+	switch cType {
+	case JSONLCorpus:
+		return LoadJSONL(fp)
+	case LDACCorpus:
+		return LoadLDACFile(fp)
+	default:
+		return nil, fmt.Errorf("Unknown corpus type.")
+	}
 }

@@ -1,10 +1,10 @@
 package fgsdmm
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
-	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
