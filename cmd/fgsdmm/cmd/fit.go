@@ -38,7 +38,12 @@ var fitCmd = &cobra.Command{
 			logger.WithError(err).Fatalf("Error loading corpus from %s", corpusPath)
 		}
 		logger.Info("Fitting model to corpus.")
-		model := fgsdmm.NewFGSDMM(178, 500, 0.1, 0.1)
+		model := fgsdmm.NewFGSDMM(&fgsdmm.HyperParams{
+			KMax:     178,
+			Alpha:    0.1,
+			Beta:     0.1,
+			MaxIters: 50,
+		})
 		model.Fit(corpus)
 		logger.Info("Complete.")
 		ari := corpus.AdjustedRandIndex(model.Labels)

@@ -104,13 +104,14 @@ func TestExpNormalize(t *testing.T) {
 
 func TestScoreNonEmpty(t *testing.T) {
 	Convey("Given a model, cluster and a document", t, func() {
-		model := &FGSDMM{
+		model := NewFGSDMM(&HyperParams{
 			KMax:  5,
-			KNon:  2,
-			V:     5,
-			Alpha: .1,
-			Beta:  .1,
-		}
+			Alpha: 0.1,
+			Beta:  0.1,
+		})
+		model.KNon = 2
+		model.V = 5
+
 		c := &Cluster{
 			TknCts: map[int]int{0: 2, 1: 2, 2: 1},
 			NDoc:   2,

@@ -6,7 +6,14 @@ import (
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
-type FGSDMM struct {
+type State struct {
+	KNon     int
+	Clusters []*Cluster
+	Labels   []int
+}
+
+// HyperParams stores the hyperparameters for FGSDMM.
+type HyperParams struct {
 	// KMax is the maximum number of clusters to be used.
 	KMax int
 
@@ -21,6 +28,17 @@ type FGSDMM struct {
 
 	// MaxIters is a hard upper bound on the number of iterations of Gibbs sampling.
 	MaxIters int
+}
+
+var DefaultHyperParams = &HyperParams{
+	KMax:     100,
+	Alpha:    0.1,
+	Beta:     0.1,
+	MaxIters: 50,
+}
+
+type FGSDMM struct {
+	*HyperParams
 
 	// Clusters is an array of all of the non-empty clusters.
 	Clusters []*Cluster
@@ -39,16 +57,15 @@ type FGSDMM struct {
 }
 
 // NewFGSDMM creates a new model with the given parameters.
-func NewFGSDMM(KMax, MaxIters int, Alpha, Beta float64) *FGSDMM {
-	model := &FGSDMM{
-		KMax:     KMax,
-		Alpha:    Alpha,
-		Beta:     Beta,
-		MaxIters: MaxIters,
-		Clusters: make([]*Cluster, 0, KMax),
-		Labels:   make([]int, 0),
+func NewFGSDMM(hp *HyperParams) *FGSDMM {
+	if hp == nil {
+		hp = DefaultHyperParams
 	}
-
+	model := &FGSDMM{
+		HyperParams: hp,
+		Clusters:    make([]*Cluster, 0, hp.KMax),
+		Labels:      make([]int, 0),
+	}
 	return model
 }
 
