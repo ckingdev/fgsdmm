@@ -110,7 +110,9 @@ func TestScoreNonEmpty(t *testing.T) {
 			Beta:  0.1,
 		})
 		model.KNon = 2
-		model.V = 5
+		model.Corpus = &Corpus{
+			V: 5,
+		}
 
 		c := &Cluster{
 			TknCts: map[int]int{0: 2, 1: 2, 2: 1},

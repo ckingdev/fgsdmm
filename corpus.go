@@ -49,6 +49,9 @@ type Corpus struct {
 	NDocs  int
 	Docs   []*Document
 	TknMap map[string]int
+
+	// TODO: set this in loading functions
+	V int
 }
 
 // LoadLDACFile loads a file in the LDA-C format. See the readme at

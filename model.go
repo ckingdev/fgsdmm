@@ -7,9 +7,14 @@ import (
 )
 
 type State struct {
-	KNon     int
+	// Clusters is an array of all of the non-empty clusters.
 	Clusters []*Cluster
-	Labels   []int
+
+	// Labels holds the current assignment of documents to clusters.
+	Labels []int
+
+	// KNon stores the number of non-empty clusters.
+	KNon int
 }
 
 // HyperParams stores the hyperparameters for FGSDMM.
@@ -39,21 +44,10 @@ var DefaultHyperParams = &HyperParams{
 
 type FGSDMM struct {
 	*HyperParams
-
-	// Clusters is an array of all of the non-empty clusters.
-	Clusters []*Cluster
-
-	// Labels holds the current assignment of documents to clusters.
-	Labels []int
-
-	// KNon stores the number of non-empty clusters.
-	KNon int
+	*State
 
 	// Corpus holds the documents the model is training on.
 	Corpus *Corpus
-
-	// V is the vocabulary size- the number of unique words in the entire corpus.
-	V int
 }
 
 // NewFGSDMM creates a new model with the given parameters.
@@ -63,8 +57,10 @@ func NewFGSDMM(hp *HyperParams) *FGSDMM {
 	}
 	model := &FGSDMM{
 		HyperParams: hp,
-		Clusters:    make([]*Cluster, 0, hp.KMax),
-		Labels:      make([]int, 0),
+		State: &State{
+			Clusters: make([]*Cluster, 0, hp.KMax),
+			Labels:   make([]int, 0),
+		},
 	}
 	return model
 }
@@ -117,7 +113,7 @@ func (m *FGSDMM) scoreNonEmpty(z *Cluster, d *Document) float64 {
 	}
 
 	for i := 1; i <= d.NTkn; i++ {
-		score -= math.Log(float64(z.NTkn+i-1) + float64(m.V)*m.Beta)
+		score -= math.Log(float64(z.NTkn+i-1) + float64(m.Corpus.V)*m.Beta)
 	}
 	return score
 }
@@ -131,7 +127,7 @@ func (m *FGSDMM) scoreEmpty(d *Document) float64 {
 		}
 	}
 	for i := 1; i <= d.NTkn; i++ {
-		score -= math.Log(float64(m.V)*m.Beta + float64(i-1))
+		score -= math.Log(float64(m.Corpus.V)*m.Beta + float64(i-1))
 	}
 	return score
 }
@@ -163,7 +159,7 @@ func (m *FGSDMM) Fit(c *Corpus) {
 			vocab[tknID] = struct{}{}
 		}
 	}
-	m.V = len(vocab)
+	m.Corpus.V = len(vocab)
 
 	// Initialize the cluster assignments randomly from a uniform distribution.
 	// TODO: sample the initial assignments a la fitting procedure
