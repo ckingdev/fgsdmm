@@ -1,21 +1,8 @@
 package fgsdmm
 
 import (
-	"math"
-
 	"gonum.org/v1/gonum/stat/distuv"
 )
-
-type State struct {
-	// Clusters is an array of all of the non-empty clusters.
-	Clusters []*Cluster
-
-	// Labels holds the current assignment of documents to clusters.
-	Labels []int
-
-	// KNon stores the number of non-empty clusters.
-	KNon int
-}
 
 // HyperParams stores the hyperparameters for FGSDMM.
 type HyperParams struct {
@@ -65,89 +52,6 @@ func NewFGSDMM(hp *HyperParams) *FGSDMM {
 	return model
 }
 
-// clusterAdd updates the cluster to include the counts from the document.
-func clusterAdd(c *Cluster, d *Document) {
-	for i := 0; i < len(d.TknIDs); i++ {
-		c.TknCts[d.TknIDs[i]] += d.TknCts[i]
-		c.NTkn += d.TknCts[i]
-	}
-	c.NDoc++
-}
-
-// clusterRemove updates the cluster to remove the counts from the document.
-func clusterRemove(c *Cluster, d *Document) {
-	for i := 0; i < len(d.TknIDs); i++ {
-		c.TknCts[d.TknIDs[i]] -= d.TknCts[i]
-		c.NTkn -= d.TknCts[i]
-	}
-	c.NDoc--
-}
-
-// moveCluster moves the last nonempty cluster into cluster z.
-func (m *FGSDMM) moveCluster(z int) {
-	idx := len(m.Clusters) - 1
-
-	// Move last cluster
-	m.Clusters[z] = m.Clusters[idx]
-
-	// Update the labels for docs in the last cluster
-	for i := range m.Labels {
-		if m.Labels[i] == idx {
-			m.Labels[i] = z
-		}
-	}
-	// Remove the last cluster.
-	m.Clusters = m.Clusters[:idx]
-
-	m.KNon--
-}
-
-// scoreNonEmpty gives the log weight associated with the given cluster and document.
-func (m *FGSDMM) scoreNonEmpty(z *Cluster, d *Document) float64 {
-	score := math.Log(float64(z.NDoc) + m.Alpha)
-
-	for i := 0; i < len(d.TknIDs); i++ {
-		for j := 1; j <= d.TknCts[i]; j++ {
-			score += math.Log(float64(z.TknCts[d.TknIDs[i]]+j-1) + m.Beta)
-		}
-	}
-
-	for i := 1; i <= d.NTkn; i++ {
-		score -= math.Log(float64(z.NTkn+i-1) + float64(m.Corpus.V)*m.Beta)
-	}
-	return score
-}
-
-// scoreEmpty gives the log weight associated with the given document being assigned to one of the empty clusters
-func (m *FGSDMM) scoreEmpty(d *Document) float64 {
-	score := math.Log(float64(m.KMax-m.KNon) * m.Alpha)
-	for i := 0; i < len(d.TknIDs); i++ {
-		for j := 1; j <= d.TknCts[i]; j++ {
-			score += math.Log(float64(j-1) + m.Beta)
-		}
-	}
-	for i := 1; i <= d.NTkn; i++ {
-		score -= math.Log(float64(m.Corpus.V)*m.Beta + float64(i-1))
-	}
-	return score
-}
-
-// expNormalize takes a set of log weights and calculates the exponent in a way that avoids overflow.
-// the result is proportional to the raw probability, i.e., P(i) = expNormalize(logW)[i]/sum(expNormalize(logW))
-func expNormalize(logW []float64) []float64 {
-	b := logW[0]
-	for i := 1; i < len(logW); i++ {
-		if logW[i] > b {
-			b = logW[i]
-		}
-	}
-	W := make([]float64, len(logW))
-	for i := 0; i < len(logW); i++ {
-		W[i] = math.Exp(logW[i] - b)
-	}
-	return W
-}
-
 // Fit trains the model on the given corpus.
 func (m *FGSDMM) Fit(c *Corpus) {
 	m.Corpus = c
@@ -168,27 +72,14 @@ func (m *FGSDMM) Fit(c *Corpus) {
 		weights[i] = 1.0
 	}
 
+	m.State.Labels = make([]int, c.NDocs)
 	// TODO: make the random src a parameter for reproducible runs
 	sampler := distuv.NewCategorical(weights, nil)
-	for _, doc := range c.Docs {
+	for i, doc := range c.Docs {
 		z := int(sampler.Rand())
-
-		// If assigned to an empty cluster, assign it to the *first* empty cluster.
-		if z >= m.KNon {
-			z = m.KNon
-			m.Clusters = append(m.Clusters, &Cluster{
-				TknCts: make(map[int]int),
-				NDoc:   0,
-			})
-			m.KNon++
-		}
-		m.Labels = append(m.Labels, z)
-		clusterAdd(m.Clusters[z], doc)
-
+		m.clusterAdd(z, i, doc)
 	}
-
 	swaps := make([]int, 0, m.MaxIters)
-
 	for iter := 0; iter < m.MaxIters; iter++ {
 		swaps = append(swaps, 0)
 
@@ -197,12 +88,7 @@ func (m *FGSDMM) Fit(c *Corpus) {
 		for d, doc := range m.Corpus.Docs {
 			z := m.Labels[d]
 
-			// remove doc d from cluster z and reorder the clusters if empty
-			// i.e., if the cluster is empty after removing the document, move the last non-empty cluster into its place.
-			clusterRemove(m.Clusters[z], doc)
-			if m.Clusters[z].NDoc == 0 {
-				m.moveCluster(z)
-			}
+			m.clusterRemove(z, doc)
 
 			// sample a new nonempty cluster or the KNon+1'th empty cluster
 			w := make([]float64, m.KNon)
@@ -210,7 +96,6 @@ func (m *FGSDMM) Fit(c *Corpus) {
 			// TODO: use a pool of workers to calculate this in parallel
 			for i := 0; i < m.KNon; i++ {
 				w[i] = m.scoreNonEmpty(m.Clusters[i], doc)
-
 			}
 
 			// Only calculate the weight for a new cluster if we're not already using all clusters
@@ -222,18 +107,7 @@ func (m *FGSDMM) Fit(c *Corpus) {
 			sampler := distuv.NewCategorical(w, nil)
 			zNew := int(sampler.Rand())
 
-			// If assigned to an empty cluster, create it first
-			if zNew == m.KNon {
-				m.Clusters = append(m.Clusters, &Cluster{
-					TknCts: make(map[int]int, len(doc.TknIDs)),
-					NTkn:   0,
-					NDoc:   0,
-				})
-				m.KNon++
-			}
-
-			clusterAdd(m.Clusters[zNew], doc)
-			m.Labels[d] = zNew
+			m.clusterAdd(zNew, d, doc)
 			if z != zNew {
 				swaps[iter]++
 			}

@@ -152,6 +152,7 @@ func LoadJSONL(path string) (*Corpus, error) {
 		}
 		c.Docs = append(c.Docs, doc)
 	}
+	c.NDocs = len(c.Docs)
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}

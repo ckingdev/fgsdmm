@@ -42,8 +42,12 @@ func TestCluster(t *testing.T) {
 			TknCts: []int{3, 2, 1},
 			NTkn:   6,
 		}
+		s := &State{
+			Clusters: []*Cluster{c},
+			Labels:   []int{0, 0},
+		}
 		Convey("When the document is added to the cluster", func() {
-			clusterAdd(c, d1)
+			s.clusterAdd(0, 0, d1)
 
 			Convey("The number of documents in the cluster should be 1.", func() {
 				So(c.NDoc, ShouldEqual, 1)
@@ -60,8 +64,8 @@ func TestCluster(t *testing.T) {
 			})
 		})
 		Convey("When two documents are added to the cluster", func() {
-			clusterAdd(c, d1)
-			clusterAdd(c, d2)
+			s.clusterAdd(0, 0, d1)
+			s.clusterAdd(0, 1, d2)
 
 			Convey("The number of documents in the cluster should be two.", func() {
 				So(c.NDoc, ShouldEqual, 2)
