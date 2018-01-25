@@ -1,28 +1,10 @@
 package fgsdmm
 
 import (
-	"fmt"
-	"math"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
-
-func shouldAllAlmostEqual(actual interface{}, expected ...interface{}) string {
-	del := 0.0001
-	if len(expected) == 2 {
-		del = expected[1].(float64)
-	}
-	actualF64 := actual.([]float64)
-	expectedF64 := expected[0].([]float64)
-
-	for i := range actualF64 {
-		if math.Abs(actualF64[i]-expectedF64[i]) >= del {
-			return fmt.Sprintf("Expected element %v to be almost equal to %v, got %v", i, actualF64[i], expectedF64[i])
-		}
-	}
-	return ""
-}
 
 func TestCluster(t *testing.T) {
 	Convey("Given a cluster and a document", t, func() {
@@ -95,17 +77,6 @@ func TestCluster(t *testing.T) {
 	})
 }
 
-func TestExpNormalize(t *testing.T) {
-	Convey("Given a vector of log weights", t, func() {
-		logW := []float64{100, 102, 99}
-
-		Convey("The normalization of the vector should be correct.", func() {
-			W := expNormalize(logW)
-			So(W, shouldAllAlmostEqual, []float64{.135335, 1.0, .049787068})
-		})
-	})
-}
-
 func TestScoreNonEmpty(t *testing.T) {
 	Convey("Given a model, cluster and a document", t, func() {
 		model := NewFGSDMM(&HyperParams{
@@ -130,12 +101,12 @@ func TestScoreNonEmpty(t *testing.T) {
 		}
 		Convey("The score for the document in the cluster should be correct.", func() {
 			score := model.scoreNonEmpty(c, d)
-			So(score, ShouldAlmostEqual, -3.270331, 0.0001)
+			So(score, ShouldAlmostEqual, 0.03799384615384616, 0.0001)
 		})
 
 		Convey("The score for the document in an empty cluster should be correct", func() {
 			score := model.scoreEmpty(d)
-			So(score, ShouldAlmostEqual, -8.7403367427)
+			So(score, ShouldAlmostEqual, 0.00016000000000000007)
 		})
 	})
 }

@@ -1,9 +1,5 @@
 package fgsdmm
 
-import (
-	"math"
-)
-
 type State struct {
 	// Clusters is an array of all of the non-empty clusters.
 	Clusters []*Cluster
@@ -76,48 +72,30 @@ func (s *State) moveCluster(z int) {
 	s.KNon--
 }
 
-// scoreNonEmpty gives the log weight associated with the given cluster and document.
+// scoreNonEmpty gives the weight associated with the given cluster and document.
 func (m *FGSDMM) scoreNonEmpty(z *Cluster, d *Document) float64 {
-	score := math.Log(float64(z.NDoc) + m.Alpha)
-
+	score := float64(z.NDoc) + m.Alpha
+	ct := 0
 	for i := 0; i < len(d.TknIDs); i++ {
 		for j := 1; j <= d.TknCts[i]; j++ {
-			score += math.Log(float64(z.TknCts[d.TknIDs[i]]+j-1) + m.Beta)
+			score *= (float64(z.TknCts[d.TknIDs[i]]+j-1) + m.Beta) /
+				(float64(z.NTkn+j+ct-1) + float64(m.Corpus.V)*m.Beta)
 		}
-	}
-
-	for i := 1; i <= d.NTkn; i++ {
-		score -= math.Log(float64(z.NTkn+i-1) + float64(m.Corpus.V)*m.Beta)
+		ct += d.TknCts[i]
 	}
 	return score
 }
 
-// scoreEmpty gives the log weight associated with the given document being assigned to one of the empty clusters
+// scoreEmpty gives the weight associated with the given document being assigned to one of the empty clusters
 func (m *FGSDMM) scoreEmpty(d *Document) float64 {
-	score := math.Log(float64(m.KMax-m.KNon) * m.Alpha)
+	score := float64(m.KMax-m.KNon) * m.Alpha
+	ct := 0
 	for i := 0; i < len(d.TknIDs); i++ {
 		for j := 1; j <= d.TknCts[i]; j++ {
-			score += math.Log(float64(j-1) + m.Beta)
+			score *= (float64(j-1) + m.Beta) /
+				(float64(m.Corpus.V)*m.Beta + float64(j+ct-1))
 		}
-	}
-	for i := 1; i <= d.NTkn; i++ {
-		score -= math.Log(float64(m.Corpus.V)*m.Beta + float64(i-1))
+		ct += d.TknCts[i]
 	}
 	return score
-}
-
-// expNormalize takes a set of log weights and calculates the exponent in a way that avoids overflow.
-// the result is proportional to the raw probability, i.e., P(i) = expNormalize(logW)[i]/sum(expNormalize(logW))
-func expNormalize(logW []float64) []float64 {
-	b := logW[0]
-	for i := 1; i < len(logW); i++ {
-		if logW[i] > b {
-			b = logW[i]
-		}
-	}
-	W := make([]float64, len(logW))
-	for i := 0; i < len(logW); i++ {
-		W[i] = math.Exp(logW[i] - b)
-	}
-	return W
 }

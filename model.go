@@ -103,7 +103,6 @@ func (m *FGSDMM) Fit(c Corpus) {
 				w = append(w, m.scoreEmpty(&doc))
 			}
 
-			w = expNormalize(w)
 			sampler := distuv.NewCategorical(w, nil)
 			zNew := int(sampler.Rand())
 
