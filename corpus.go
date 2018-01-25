@@ -47,7 +47,7 @@ type Cluster struct {
 // token => numerical ID if needed.
 type Corpus struct {
 	NDocs  int
-	Docs   []*Document
+	Docs   []Document
 	TknMap map[string]int
 
 	// TODO: set this in loading functions
@@ -76,7 +76,7 @@ func LoadLDACFile(fp string) (*Corpus, error) {
 		if len(fields)-1 != nTkns {
 			return nil, fmt.Errorf("incorrect # of tokens in doc %v. Expected %v, got %v", len(c.Docs), nTkns, len(fields)-1)
 		}
-		d := &Document{
+		d := Document{
 			TknIDs: make([]int, 0, nTkns),
 			TknCts: make([]int, 0, nTkns),
 		}
@@ -120,7 +120,7 @@ func LoadJSONL(path string) (*Corpus, error) {
 	scanner := bufio.NewScanner(f)
 	c := &Corpus{
 		NDocs:  0,
-		Docs:   make([]*Document, 0),
+		Docs:   make([]Document, 0),
 		TknMap: make(map[string]int),
 	}
 
@@ -130,7 +130,7 @@ func LoadJSONL(path string) (*Corpus, error) {
 			return nil, err
 		}
 
-		doc := &Document{
+		doc := Document{
 			Label:  rawDoc.Cluster,
 			TknIDs: make([]int, 0),
 			TknCts: make([]int, 0),

@@ -9,7 +9,7 @@ import (
 func TestAdjustedRandIndex(t *testing.T) {
 	Convey("Given sample true/predicted labels x and y", t, func() {
 		c := &Corpus{
-			Docs: []*Document{
+			Docs: []Document{
 				{Label: 0},
 				{Label: 0},
 				{Label: 0},
@@ -28,7 +28,7 @@ func TestAdjustedRandIndex(t *testing.T) {
 	})
 	Convey("Given identical label sets", t, func() {
 		c := &Corpus{
-			Docs: []*Document{
+			Docs: []Document{
 				{Label: 0},
 				{Label: 0},
 				{Label: 0},
@@ -46,7 +46,7 @@ func TestAdjustedRandIndex(t *testing.T) {
 	Convey("Given disjoint label sets", t, func() {
 		y := []int{0, 1, 2, 3}
 		c := &Corpus{
-			Docs: []*Document{
+			Docs: []Document{
 				{Label: 0},
 				{Label: 0},
 				{Label: 1},

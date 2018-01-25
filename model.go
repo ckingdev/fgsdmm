@@ -77,7 +77,7 @@ func (m *FGSDMM) Fit(c *Corpus) {
 	sampler := distuv.NewCategorical(weights, nil)
 	for i, doc := range c.Docs {
 		z := int(sampler.Rand())
-		m.clusterAdd(z, i, doc)
+		m.clusterAdd(z, i, &doc)
 	}
 	swaps := make([]int, 0, m.MaxIters)
 	for iter := 0; iter < m.MaxIters; iter++ {
@@ -88,26 +88,26 @@ func (m *FGSDMM) Fit(c *Corpus) {
 		for d, doc := range m.Corpus.Docs {
 			z := m.Labels[d]
 
-			m.clusterRemove(z, doc)
+			m.clusterRemove(z, &doc)
 
 			// sample a new nonempty cluster or the KNon+1'th empty cluster
 			w := make([]float64, m.KNon)
 
 			// TODO: use a pool of workers to calculate this in parallel
 			for i := 0; i < m.KNon; i++ {
-				w[i] = m.scoreNonEmpty(m.Clusters[i], doc)
+				w[i] = m.scoreNonEmpty(m.Clusters[i], &doc)
 			}
 
 			// Only calculate the weight for a new cluster if we're not already using all clusters
 			if m.KNon < m.KMax {
-				w = append(w, m.scoreEmpty(doc))
+				w = append(w, m.scoreEmpty(&doc))
 			}
 
 			w = expNormalize(w)
 			sampler := distuv.NewCategorical(w, nil)
 			zNew := int(sampler.Rand())
 
-			m.clusterAdd(zNew, d, doc)
+			m.clusterAdd(zNew, d, &doc)
 			if z != zNew {
 				swaps[iter]++
 			}
