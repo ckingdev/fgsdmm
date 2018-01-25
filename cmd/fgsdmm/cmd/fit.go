@@ -44,7 +44,7 @@ var fitCmd = &cobra.Command{
 			Beta:     0.1,
 			MaxIters: 50,
 		})
-		model.Fit(corpus)
+		model.Fit(*corpus)
 		logger.Info("Complete.")
 		ari := corpus.AdjustedRandIndex(model.Labels)
 		logger.Infof("Adjusted Rand Index: %v", ari)

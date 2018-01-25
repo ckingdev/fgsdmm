@@ -114,7 +114,7 @@ func TestScoreNonEmpty(t *testing.T) {
 			Beta:  0.1,
 		})
 		model.KNon = 2
-		model.Corpus = &Corpus{
+		model.Corpus = Corpus{
 			V: 5,
 		}
 

@@ -34,7 +34,7 @@ type FGSDMM struct {
 	*State
 
 	// Corpus holds the documents the model is training on.
-	Corpus *Corpus
+	Corpus Corpus
 }
 
 // NewFGSDMM creates a new model with the given parameters.
@@ -53,7 +53,7 @@ func NewFGSDMM(hp *HyperParams) *FGSDMM {
 }
 
 // Fit trains the model on the given corpus.
-func (m *FGSDMM) Fit(c *Corpus) {
+func (m *FGSDMM) Fit(c Corpus) {
 	m.Corpus = c
 
 	// calculate V as the number of unique terms in the corpus.
